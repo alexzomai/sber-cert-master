@@ -1,0 +1,8 @@
+[Unit]
+Description=Sber API credentials watchdog (user mode)
+
+[Service]
+Type=oneshot
+Environment="SBER_CERT_MASTER_CONFIG=@CONFIG@"
+ExecStart="@BIN@" check
+SuccessExitStatus=1

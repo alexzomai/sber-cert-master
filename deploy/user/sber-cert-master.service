@@ -1,0 +1,16 @@
+[Unit]
+Description=Sber API credentials keeper (user mode)
+After=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+Environment="SBER_CERT_MASTER_CONFIG=@CONFIG@"
+ExecStart="@BIN@" run
+Restart=always
+RestartSec=10
+WatchdogSec=600
+UMask=0077
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,14 @@
+[Unit]
+Description=Sber API credentials watchdog (alerts if the keeper is down or token is stale)
+
+[Service]
+Type=oneshot
+User=sber-cert-master
+Group=sber-cert-master
+Environment=SBER_CERT_MASTER_CONFIG=/etc/sber-cert-master/config.toml
+ExecStart=/usr/local/bin/sber-cert-master check
+SuccessExitStatus=1
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/sber-cert-master

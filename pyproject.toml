@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sber-cert-master"
+version = "0.1.0"
+description = "Keeps Sber Business API (Sber API) tokens, client_secret and TLS certificates alive for agents"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+sber-cert-master = "sber_cert_master.cli:main"
+
+[tool.setuptools]
+packages = ["sber_cert_master"]
+
+[tool.setuptools.package-data]
+sber_cert_master = ["ca/*.pem"]

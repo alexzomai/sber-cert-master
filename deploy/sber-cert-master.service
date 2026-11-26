@@ -1,0 +1,31 @@
+[Unit]
+Description=Sber API credentials keeper (tokens, client_secret, TLS)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+User=sber-cert-master
+Group=sber-cert-master
+Environment=SBER_CERT_MASTER_CONFIG=/etc/sber-cert-master/config.toml
+ExecStart=/usr/local/bin/sber-cert-master run
+Restart=always
+RestartSec=10
+WatchdogSec=600
+UMask=0077
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+ReadWritePaths=/var/lib/sber-cert-master
+
+[Install]
+WantedBy=multi-user.target

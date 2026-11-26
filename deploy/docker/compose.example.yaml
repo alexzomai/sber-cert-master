@@ -1,0 +1,56 @@
+# sber-cert-master next to agent containers.
+#
+# 0. Build the image (repository root):  docker build -f deploy/docker/Dockerfile -t sber-cert-master .
+# 1. cp deploy/docker/compose.example.yaml compose.yaml; cp deploy/config.example.toml config.toml
+#    In config.toml set client_id, and publish_group = <PRIMARY GID of the agent process> (10000 for
+#    the Hermes image); keep state_dir/publish_dir as they are. The file must be readable by the keeper
+#    (uid/gid 10051): chmod 0644 config.toml  (it holds no secrets).
+# 2. BEFORE any import: stop and drain everything that refreshes tokens or changes client_secret today
+#    (old agent code, cron jobs) — see docs/AGENT_INSTALL.md, step 3. Take the refresh_token and
+#    client_secret only AFTER they are stopped.
+# 3. Put client.p12, p12.pass, secret.txt, refresh_token.txt into the `incoming` volume, owner 10051, mode 0600:
+#      docker compose -f compose.yaml run --rm --no-deps --user 0 -v "$PWD/bootstrap:/b:ro" --entrypoint sh keeper \
+#        -c 'install -o 10051 -g 10051 -m 0600 /b/* /var/lib/sber-cert-master/incoming/'
+# 4. I=/var/lib/sber-cert-master/incoming
+#    docker compose -f compose.yaml run --rm --no-deps keeper init main --p12 $I/client.p12 \
+#        --p12-password-file $I/p12.pass --client-secret-file $I/secret.txt --secret-set-at YYYY-MM-DD
+#    docker compose -f compose.yaml run --rm --no-deps keeper import-refresh-token main --file $I/refresh_token.txt
+#    If the import fails with a network error/timeout, repeat THE SAME command at once (the bank accepts a
+#    retry within an hour); never import a different token instead.
+#    A successful import IMMEDIATELY revokes the access token legacy agents use: go on to step 5 at once
+#    (agents configured to read the published files), or pause their Sber API work until then.
+# 5. docker compose -f compose.yaml up -d
+#    docker compose -f compose.yaml exec keeper python3 -m sber_cert_master status     # errors: {}
+#    docker compose -f compose.yaml exec keeper python3 -m sber_cert_master check      # exit 0
+#    docker compose -f compose.yaml exec agent sh -c 'test -r /var/lib/sber-cert-master/public/main/token.json && echo OK'
+#      (for images that start the agent as another user, check as that user: su -s /bin/sh <user> -c '...')
+# 6. Wipe the incoming volume:  docker compose -f compose.yaml run --rm --no-deps --entrypoint sh keeper \
+#        -c 'rm -f /var/lib/sber-cert-master/incoming/*'
+services:
+  keeper:
+    image: sber-cert-master
+    restart: unless-stopped
+    # The keeper must be a member of publish_group to give published files that group.
+    # Use the PRIMARY GID of the agent process: supervisors like s6 (Hermes image) drop supplementary
+    # groups, so `group_add` on the agent container does not work there.
+    group_add: ["10000"]
+    volumes:
+      - sber-state:/var/lib/sber-cert-master/state        # secrets: never mount into agents
+      - sber-public:/var/lib/sber-cert-master/public      # what agents read
+      - sber-incoming:/var/lib/sber-cert-master/incoming  # bootstrap drop box
+      - ./config.toml:/etc/sber-cert-master/config.toml:ro
+
+  agent:
+    image: nousresearch/hermes-agent:v0.23.1-desktop    # any agent; runs as uid/gid 10000 here
+    volumes:
+      # Same absolute path as in the keeper: the paths written into `env` are valid here too.
+      - sber-public:/var/lib/sber-cert-master/public:ro
+    environment:
+      - SBER_DIR=/var/lib/sber-cert-master/public/main
+      - NO_PROXY=localhost,127.0.0.1,.sberbank.ru        # talk to the bank directly
+    depends_on: [keeper]
+
+volumes:
+  sber-state: {}
+  sber-public: {}
+  sber-incoming: {}

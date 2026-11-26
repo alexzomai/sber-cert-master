@@ -1,0 +1,25 @@
+# /etc/sber-cert-master/config.toml  (root:sber-cert-master 0640)
+
+state_dir = "/var/lib/sber-cert-master/state"     # секреты: только пользователь сервиса (0700/0600)
+publish_dir = "/var/lib/sber-cert-master/public"  # то, что читают агенты (группа publish_group, 0640)
+tick_interval_seconds = 15                        # незавершённое обновление повторяется на следующем тике
+
+[notify]
+min_level = "warning"                 # info | warning | critical
+# Любой из каналов (можно несколько):
+# command = "/usr/local/bin/notify-ops"            # текст приходит на stdin, плюс $SCM_LEVEL $SCM_TITLE $SCM_TEXT
+# webhook_url = "https://hooks.example.ru/sber"    # POST JSON {level,title,text,host,message}
+# telegram_bot_token_file = "/etc/sber-cert-master/telegram.token"
+# telegram_chat_id = "-1001234567890"
+
+[profiles.main]
+env = "prod"                          # prod | sandbox
+client_id = "12345"
+redirect_uri = "https://example.ru/sber/callback"   # как зарегистрирован в ЛК Sber API
+scope = "openid GET_STATEMENT_ACCOUNT GET_STATEMENT_TRANSACTION PAY_DOC_RU"
+publish_group = "sber-agents"         # группа пользователей, от которых работают агенты
+refresh_margin_seconds = 1200         # агенты всегда видят токен, живущий ещё >= 20 минут
+secret_rotate_after_days = 30         # банк: секрет живёт 40 дней
+probe_interval_seconds = 300          # проверочный GET user-info раз в 5 минут: ловит отзыв токена (0 — выключить)
+# cert_warn_days = [60, 30, 14, 7, 3, 1]
+# proxy = "http://proxy.local:3128"   # только если до банка нет прямого доступа; HTTPS_PROXY из окружения игнорируется
